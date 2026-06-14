@@ -1,0 +1,9 @@
+/backend/.env
+.env
+node_modules
+__pycache__
+.output
+.tanstack
+.venv
+.wrangler
+.vscode
