@@ -10,7 +10,7 @@ A zero-friction, AI-powered grocery and household e-commerce storefront. Users d
 
 ### AI Intent Engine
 - Natural language input → multi-tier curated bundles
-- RAG pipeline: semantic embeddings (gemini-embedding-001) retrieve top-40 relevant items from a 1,075-product catalog, then Gemini 2.5 Flash assembles price-tier bundles
+- RAG pipeline: semantic embeddings (gemini-embedding-001) retrieve top-40 relevant items from a 1,075-product catalog, then Gemini 3.1 Flash Lite assembles price-tier bundles
 - Three pricing tiers per query: **Smart Saver**, **Popular Choice**, **Premium Selection**
 - "You might also like" extras section with 6–10 complementary items
 
@@ -104,7 +104,7 @@ A zero-friction, AI-powered grocery and household e-commerce storefront. Users d
       <td>REST API framework</td>
     </tr>
     <tr>
-      <td>Google Gemini 2.5 Flash</td>
+      <td>Google Gemini 3.1 Flash Lite</td>
       <td>LLM for bundle generation</td>
     </tr>
     <tr>
@@ -247,8 +247,8 @@ On first boot, the server embeds all 1,075 catalog items and caches the result t
 │                     FastAPI Backend                         │
 │                                                             │
 │  ┌─────────────┐    ┌──────────────┐    ┌───────────────┐   │
-│  │  Embedding  │    │   RAG        │    │   Gemini      │   │
-│  │  Vector     │───>│   Retrieval  │───>│   2.5 Flash   │   │
+│  │  Embedding  │    │   RAG        │    │   Gemini 3.1  │   │
+│  │  Vector     │───>│   Retrieval  │───>│   Flash Lite  │   │
 │  │  Store      │    │   (Top 40)   │    │   Generation  │   │
 │  │  (.npy)     │    └──────────────┘    └───────────────┘   │
 │  └─────────────┘                                            │
