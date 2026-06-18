@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { fetchSmartRestock, generateIntentCart, searchProducts } from "@/lib/api/example.functions";
+import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -87,6 +88,7 @@ type ApiTieredBundle = {
 type ApiIntentResponse = {
   bundles: ApiTieredBundle[];
   extras?: ApiProduct[];
+  message?: string | null;
 };
 
 type RestockCardData = {
@@ -408,6 +410,19 @@ function Navbar({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const runSearch = useServerFn(searchProducts);
 
+  // Speech-to-text for search
+  const { isListening: searchListening, transcript: searchTranscript, start: startSearchSTT, stop: stopSearchSTT, isSupported: searchSTTSupported } = useSpeechRecognition();
+
+  // Sync search STT transcript into input and trigger search
+  useEffect(() => {
+    if (searchTranscript) {
+      setSearchQuery(searchTranscript);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => doSearch(searchTranscript), 300);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTranscript]);
+
   const doSearch = useCallback(
     async (query: string) => {
       if (query.trim().length < 2) {
@@ -567,6 +582,19 @@ function Navbar({
               }}
               className="flex-1 min-w-0 px-3 py-2 text-sm text-black outline-none bg-white"
             />
+            {searchSTTSupported && (
+              <button
+                aria-label={searchListening ? "Stop voice search" : "Voice search"}
+                onClick={searchListening ? stopSearchSTT : startSearchSTT}
+                className={`flex items-center px-2 border-l border-gray-200 shrink-0 transition-all ${
+                  searchListening
+                    ? "text-red-500 animate-pulse"
+                    : "text-gray-500 hover:text-[#FF9900]"
+                }`}
+              >
+                <Mic className="h-4 w-4" />
+              </button>
+            )}
             <button
               aria-label="Search"
               onClick={() => doSearch(searchQuery)}
@@ -623,12 +651,22 @@ function Navbar({
                 }}
                 className="flex-1 min-w-0 px-3 py-2 text-sm text-black outline-none bg-white"
               />
-              <button
-                aria-label="Voice search"
-                className="hidden sm:flex items-center px-3 text-gray-500 hover:text-[#FF9900] border-l border-gray-200 shrink-0"
-              >
-                <Mic className="h-4 w-4" />
-              </button>
+              {searchSTTSupported && (
+                <button
+                  aria-label={searchListening ? "Stop voice search" : "Voice search"}
+                  onClick={searchListening ? stopSearchSTT : startSearchSTT}
+                  className={`hidden sm:flex items-center px-3 border-l border-gray-200 shrink-0 transition-all relative ${
+                    searchListening
+                      ? "text-red-500 animate-pulse"
+                      : "text-gray-500 hover:text-[#FF9900]"
+                  }`}
+                >
+                  <Mic className="h-4 w-4" />
+                  {searchListening && (
+                    <span className="absolute inline-flex h-4 w-4 rounded-full bg-red-400 opacity-30 animate-ping" />
+                  )}
+                </button>
+              )}
               <button
                 aria-label="Search"
                 onClick={() => doSearch(searchQuery)}
@@ -745,7 +783,18 @@ function IntentEngine({
   const [tieredBundles, setTieredBundles] = useState<Bundle[]>([]);
   const [extras, setExtras] = useState<Product[]>([]);
   const [activeTier, setActiveTier] = useState(0);
+  const [noMatchMessage, setNoMatchMessage] = useState<string | null>(null);
   const runGenerateIntentCart = useServerFn(generateIntentCart);
+
+  // Speech-to-text for intent input
+  const { isListening, transcript, start: startListening, stop: stopListening, isSupported: sttSupported } = useSpeechRecognition();
+
+  // Sync transcript into the intent textarea
+  useEffect(() => {
+    if (transcript) {
+      setIntent(transcript);
+    }
+  }, [transcript]);
 
   const mapIntentResponse = (payload: ApiIntentResponse) => {
     const bundles: Bundle[] = payload.bundles.map((tier, idx) => ({
@@ -773,13 +822,28 @@ function IntentEngine({
     setTieredBundles([]);
     setExtras([]);
     setActiveTier(0);
+    setNoMatchMessage(null);
     try {
       const payload = await runGenerateIntentCart({ data: q });
       const { bundles, extras: mappedExtras } = mapIntentResponse(payload);
-      setTieredBundles(bundles);
-      setExtras(mappedExtras);
-      // Default to middle tier if available (Popular Choice), else first
-      setActiveTier(bundles.length >= 2 ? 1 : 0);
+
+      if (bundles.length === 0) {
+        // No relevant products — show message
+        setNoMatchMessage(
+          payload.message || "We couldn't find relevant products for this request. Our store specializes in groceries, household essentials, and personal care."
+        );
+        // Still show extras as softer fallback if any were returned
+        setExtras(mappedExtras);
+      } else {
+        setTieredBundles(bundles);
+        setExtras(mappedExtras);
+        // Default to middle tier if available (Popular Choice), else first
+        setActiveTier(bundles.length >= 2 ? 1 : 0);
+        // Show partial-match message if one was provided alongside bundles
+        if (payload.message) {
+          setNoMatchMessage(payload.message);
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -811,13 +875,29 @@ function IntentEngine({
       </p>
 
       <div className="mt-5 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-3">
-        <textarea
-          value={intent}
-          onChange={(e) => setIntent(e.target.value)}
-          placeholder="e.g., I'm hosting a backyard BBQ for 6 people this Sunday, two are vegetarian..."
-          rows={4}
-          className="w-full rounded-lg border border-gray-300 focus:border-[#FF9900] focus:ring-2 focus:ring-[#FF9900]/30 outline-none p-3 text-sm resize-none bg-white"
-        />
+        <div className="relative">
+          <textarea
+            value={intent}
+            onChange={(e) => setIntent(e.target.value)}
+            placeholder="e.g., I'm hosting a backyard BBQ for 6 people this Sunday, two are vegetarian..."
+            rows={4}
+            className="w-full rounded-lg border border-gray-300 focus:border-[#FF9900] focus:ring-2 focus:ring-[#FF9900]/30 outline-none p-3 pr-12 text-sm resize-none bg-white"
+          />
+          {sttSupported && (
+            <button
+              type="button"
+              onClick={isListening ? stopListening : startListening}
+              aria-label={isListening ? "Stop listening" : "Speak your intent"}
+              className={`absolute right-3 top-3 h-8 w-8 rounded-full grid place-items-center transition-all ${
+                isListening
+                  ? "bg-red-100 text-red-600 animate-pulse ring-4 ring-red-200"
+                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-[#FF9900]"
+              }`}
+            >
+              <Mic className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         <button
           onClick={() => handleGenerate()}
           disabled={loading}
@@ -851,8 +931,43 @@ function IntentEngine({
 
       {loading && <BundleSkeleton />}
 
+      {/* No-match message when AI can't find relevant products */}
+      {!loading && noMatchMessage && tieredBundles.length === 0 && (
+        <div className="mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 sm:p-6">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-full bg-amber-100 grid place-items-center shrink-0">
+                <Search className="h-5 w-5 text-amber-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-sm font-bold text-amber-900">No matching products found</h3>
+                <p className="mt-1 text-sm text-amber-700">{noMatchMessage}</p>
+              </div>
+            </div>
+          </div>
+          {extras.length > 0 && (
+            <div className="mt-5">
+              <p className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-3">
+                You might find these useful instead
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {extras.map((item) => (
+                  <ProductCard key={item.id} product={item} onAdd={() => onAddItemToCart(item)} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {tieredBundles.length > 0 && !loading && (
         <div className="mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+          {/* Partial match info note */}
+          {noMatchMessage && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 mb-4 text-sm text-blue-700">
+              <span className="font-medium">Note:</span> {noMatchMessage}
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-[#8a5a00]">

@@ -24,3 +24,4 @@ class TieredBundle(BaseModel):
 class IntentResponse(BaseModel):
     bundles: List[TieredBundle]
     extras: List[Product] = []
+    message: str | None = None
