@@ -888,7 +888,7 @@ function IntentEngine({
               type="button"
               onClick={isListening ? stopListening : startListening}
               aria-label={isListening ? "Stop listening" : "Speak your intent"}
-              className={`absolute right-3 top-3 h-8 w-8 rounded-full grid place-items-center transition-all ${
+              className={`absolute right-3 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full grid place-items-center transition-all ${
                 isListening
                   ? "bg-red-100 text-red-600 animate-pulse ring-4 ring-red-200"
                   : "bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-[#FF9900]"
