@@ -693,7 +693,7 @@ function Navbar({
           )}
           <div className="ml-auto hidden md:flex items-center gap-1.5 text-[#FF9900] text-xs font-semibold whitespace-nowrap pl-3">
             <Sparkles className="h-3.5 w-3.5" />
-            AI Intent Engine, powered by Gemini 2.5 Flash
+            AI Intent Engine, powered by Gemini 3.1 Flash Lite
           </div>
         </div>
       </div>

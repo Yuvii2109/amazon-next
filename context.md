@@ -24,7 +24,7 @@ The workspace includes a separate FastAPI backend in `backend/` for the e-commer
 - In-memory mock catalog containing 304 diverse grocery, pantry, and household items priced realistically in INR, generated via a programmatic seeding script (`seed_catalog.py`)
 - Curated image mapping using high-quality, category-specific Unsplash production image URLs assigned directly to each product item record
 - `GET /api/restock/{category}` maps legacy URL labels (e.g., `coffee` and `produce`) to modern catalog categories (`Beverages` and `Fresh Produce`) using case-insensitive partial matching, returning a subset slice inside a `CartResponse`
-- `POST /api/intent` uses `google-genai` with `python-dotenv` and the `gemini-2.5-flash` model to turn user intent plus the full 304-item inventory catalog into a tailored `CartResponse`
+- `POST /api/intent` uses `google-genai` with `python-dotenv` and the `gemini-3.1-flash-lite` model to turn user intent plus the full 304-item inventory catalog into a tailored `CartResponse`
 - `GET /api/health` returns a simple status payload for readiness checks
 - Backend dependencies are listed in `backend/requirements.txt`
 - The Gemini API key is stored locally in `backend/.env` via `GEMINI_API_KEY`
