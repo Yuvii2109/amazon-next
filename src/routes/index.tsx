@@ -111,9 +111,9 @@ const MONSOON_BUNDLE: Bundle = {
   arrival: "Arrives in 10 minutes",
   total: 1747,
   items: [
-    { id: "m1", name: "Compact Travel Umbrella", price: 599, image: img("1534274988757-a28bf1a57c17") },
-    { id: "m2", name: "Waterproof Raincoat", price: 699, image: img("1515886657613-9f3515b0c78f") },
-    { id: "m3", name: "Waterproof LED Flashlight", price: 449, image: img("1568901346375-23c9450c58cd") },
+    { id: "m1", name: "Compact Travel Umbrella", price: 599, image: "/umbrella.webp" },
+    { id: "m2", name: "Waterproof Raincoat", price: 699, image: "/raincoat.jpg" },
+    { id: "m3", name: "Waterproof LED Flashlight", price: 449, image: "/LED.jpg" },
   ],
 };
 
