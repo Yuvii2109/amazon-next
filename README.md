@@ -254,7 +254,7 @@ On first boot, the server embeds all 1,075 catalog items and caches the result t
 │  └─────────────┘                                            │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐    │
-│  │  1,075-Item Catalog (mock_db_new.py)                │    │
+│  │  950-Item Catalog (mock_db_new.py)                  │    │
 │  │  Categories: Fruits & Veg, Beverages, Bakery,       │    │
 │  │  Foodgrains, Snacks, Beauty, Cleaning, Pets, etc.   │    │
 │  └─────────────────────────────────────────────────────┘    │
