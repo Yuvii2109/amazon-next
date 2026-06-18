@@ -82,6 +82,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       {
+        rel: "icon",
+        href: "/amazon_logo.webp",
+        type: "image/webp",
+      },
+      {
         rel: "stylesheet",
         href: appCss,
       },

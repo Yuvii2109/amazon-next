@@ -12,7 +12,7 @@ This workspace is a TanStack Start + React storefront branded as Amazon Next. Th
 - Vite for the build pipeline
 - Tailwind CSS v4 with `@tailwindcss/vite`
 - shadcn/ui-style component primitives in `src/components/ui`
-- Nitro for the server build target
+- Nitro for the server build target (defaultPreset: `cloudflare-module`)
 - Zod, React Hook Form, Sonner, Recharts, Lucide icons, and several Radix UI primitives
 
 ## Backend
@@ -20,14 +20,15 @@ This workspace is a TanStack Start + React storefront branded as Amazon Next. Th
 The workspace includes a separate FastAPI backend in `backend/` for the e-commerce prototype.
 
 - FastAPI with CORS enabled for `http://localhost:8080`
-- Pydantic models for `Product`, `CartResponse`, and the Gemini intent request body
-- In-memory mock catalog containing 304 diverse grocery, pantry, and household items priced realistically in INR, generated via a programmatic seeding script (`seed_catalog.py`)
-- Curated image mapping using high-quality, category-specific Unsplash production image URLs assigned directly to each product item record
-- `GET /api/restock/{category}` maps legacy URL labels (e.g., `coffee` and `produce`) to modern catalog categories (`Beverages` and `Fresh Produce`) using case-insensitive partial matching, returning a subset slice inside a `CartResponse`
-- `POST /api/intent` uses `google-genai` with `python-dotenv` and the `gemini-3.1-flash-lite` model to turn user intent plus the full 304-item inventory catalog into a tailored `CartResponse`
+- Pydantic models: `Product`, `CartResponse`, `TieredBundle`, `IntentResponse`, and the `IntentRequest` body
+- In-memory mock catalog containing 950 BigBasket-sourced grocery, pantry, and household items across 12 categories, priced realistically in INR, with real BigBasket CDN product image URLs
+- `GET /api/restock/{category}` maps legacy URL labels (`coffee` → Beverages, `produce` → Fruits & Vegetables, `household` → Beauty & Hygiene) with deduplication and diversity selection logic, returning a `CartResponse`
+- `POST /api/intent` uses a RAG pipeline: user query is embedded via `gemini-embedding-001`, top-40 catalog items retrieved by cosine similarity, then passed to `gemini-3.1-flash-lite` to produce a multi-tier `IntentResponse` (1–3 bundles + extras)
+- `GET /api/search?q=<query>` performs multi-term keyword scoring against product name and category, returning top 12 matches
 - `GET /api/health` returns a simple status payload for readiness checks
+- `GET /api/warmup` explicitly pre-loads embeddings and returns item count
 - Backend dependencies are listed in `backend/requirements.txt`
-- The Gemini API key is stored locally in `backend/.env` via `GEMINI_API_KEY`
+- The Gemini API key is stored locally in `backend/.env` via `GEMINI_API_KEY` (code also accepts `GOOGLE_API_KEY` as fallback)
 
 ## Entry Points
 
@@ -80,7 +81,7 @@ The homepage simulates an AI shopping assistant and a curated retail surface.
 - `src/lib/error-capture.ts`: captures the last server-side thrown error so SSR can recover a stack after h3 normalizes it
 - `src/lib/error-page.ts`: static HTML fallback error page
 - `src/lib/config.server.ts`: server-only environment access example
-- `src/lib/api/example.functions.ts`: backend-facing `createServerFn` wrappers for `generateIntentCart` and `fetchSmartRestock`
+- `src/lib/api/example.functions.ts`: backend-facing `createServerFn` wrappers for `generateIntentCart`, `fetchSmartRestock`, and `searchProducts`
 - `src/hooks/use-mobile.tsx`: simple viewport breakpoint hook
 - `src/components/ui/*`: reusable UI primitives
 
@@ -88,6 +89,8 @@ The homepage simulates an AI shopping assistant and a curated retail surface.
 
 - `npm run dev`: start the app in development
 - `npm run build`: create a production build
+- `npm run build:dev`: create a development-mode build
+- `npm run preview`: preview the production build locally
 - `npm run lint`: run ESLint across the workspace
 - `npm run format`: format the repository with Prettier
 
@@ -108,7 +111,7 @@ The homepage simulates an AI shopping assistant and a curated retail surface.
 - Verified the backend package compiles successfully with `compileall` and that the intent path works against a mocked Gemini client.
 - Replaced the mock storefront API layer with TanStack Start server functions that call the FastAPI backend for intent generation and smart restock.
 - Wired the `Generate My Cart` flow to `generateIntentCart` and the `1-Click Restock` buttons to `fetchSmartRestock`, including loading states and direct modal/cart updates.
-- Created `seed_catalog.py` to scale the backend mock repository to 304 items across 8 comprehensive categories, fully embedding mapped high-fidelity Unsplash imagery.
+- Created `seed_catalog.py` to scale the backend mock repository with comprehensive category coverage and embedded high-fidelity imagery.
 - Patched backend routing filters to translate incoming legacy categories (`coffee`, `produce`) to match the newly generated catalog labels with a partial-match case-insensitive fallback.
 - Transitioned the intent engine frontend to a curated preview flow utilizing a local `suggestedBundle` state variable. Results render as an isolated horizontal "Curated AI Box" preview track, letting users explicitly control cart ingestion through dedicated "Add Full Bundle to Cart" or individual item "+" buttons.
 - Added a tiered discount system to the cart and checkout UI to increase Average Order Value. Five tiers: ₹1000→₹100 off, ₹2000→₹150, ₹3000→₹200, ₹4000→₹250, ₹5000→₹300. Includes a `DISCOUNT_TIERS` constant, a `getDiscountInfo()` helper, and a reusable `DiscountBanner` component.
@@ -128,7 +131,7 @@ The homepage simulates an AI shopping assistant and a curated retail surface.
 - Restock cards now fetch live data from the backend on mount, replacing hardcoded bundle prices with actual catalog values so pre-click and post-click totals match.
 - Replaced the "1-Click Restock" direct-to-checkout flow with a `RestockPreviewModal` that lets users select/deselect items before adding to cart. Users curate their restock selection, then proceed through the normal cart → checkout flow.
 - New `RestockPreviewModal` component: shows all restock items with checkboxes (all selected by default), select all/clear buttons, running selected total, and "Add X items to Cart" action that moves selected items into the main cart drawer.
-- Upgraded `POST /api/intent` to a RAG (Retrieval-Augmented Generation) architecture: embeddings for all 304 catalog items are generated via `gemini-embedding-001`, cached to disk as `_catalog_embeddings.npy`, and loaded into memory at startup. Per-request, the user query is embedded and top-40 items are retrieved via numpy cosine similarity before passing to Gemini.
+- Upgraded `POST /api/intent` to a RAG (Retrieval-Augmented Generation) architecture: embeddings for all catalog items are generated via `gemini-embedding-001`, cached to disk as `_catalog_embeddings.npy`, and loaded into memory at startup. Per-request, the user query is embedded and top-40 items are retrieved via numpy cosine similarity before passing to Gemini.
 - Added `numpy` to backend dependencies and a `/api/warmup` endpoint for explicit embedding pre-load.
 - Added `lifespan` startup event in `main.py` to pre-load embeddings on server boot for fast first-request latency.
 - Embedding builder includes retry-with-backoff (30s, 60s) on 429 rate limits to handle free-tier throttling gracefully.
@@ -138,10 +141,10 @@ The homepage simulates an AI shopping assistant and a curated retail surface.
 - Frontend `IntentEngine` rewritten to display tier options as styled tab buttons (green for Smart Saver, blue for Popular Choice, amber for Premium Selection) with the active tier's products shown in the scrollable card track. Defaults to "Popular Choice" when 3 tiers exist.
 - Extras section is now shared across all tiers rather than per-bundle.
 - Fixed restock price mismatch: removed the redundant second fetch on button click. The preview modal now uses the same data already loaded on mount, ensuring card price and modal total always match.
-- Switched catalog data source from `mock_db.py` (304 Unsplash-based items) to `mock_db_new.py` (150 BigBasket-sourced items with real product images and realistic INR pricing). Old file retained for rollback.
+- Switched catalog data source from `mock_db.py` (304 Unsplash-based items) to `mock_db_new.py` (BigBasket-sourced items with real product images and realistic INR pricing). Old file retained for rollback.
 - Updated `RESTOCK_CATEGORY_MAP` to match new category names: `produce → "Fruits & Vegetables"`, `household → "Cleaning & Household"`, `coffee → "Beverages"`.
 - Deleted cached `_catalog_embeddings.npy` to force rebuild with the new catalog on next server start.
-- Updated `mock_db_new.py` to 1,075 items. Rebuilt embeddings with a fresh API key; `_catalog_embeddings.npy` is now cached on disk.
+- Updated `mock_db_new.py` to 950 items across 12 categories. Rebuilt embeddings with a fresh API key; `_catalog_embeddings.npy` is now cached on disk.
 - Added product deduplication logic to the restock endpoint: `_base_product_name()` strips size/quantity suffixes and variant descriptors, groups items by base identity, and picks one mid-price representative per group. `_select_diverse_products()` ensures 6 distinct product types per restock card.
 - Added category-specific priority sorting so each restock card shows the most relevant staples first (e.g., Beans/Brinjal/Bitter Gourd for Produce; Liquid Handwash/Antiseptic Disinfectant/Bathing Soap Cool for Household).
 - Renamed first restock card from "Monthly Coffee & Dairy Restock" to "Monthly Tea & Drinks Restock" with subtitle "Your daily chai & beverage picks".
@@ -149,3 +152,4 @@ The homepage simulates an AI shopping assistant and a curated retail surface.
 - Added `onError` image fallback handlers across all product images (ProductCard, RestockCard thumbnails, search dropdown, cart drawer, restock preview modal, checkout modal) — broken URLs now hide cleanly, showing the neutral gray background.
 - Navbar personalization: delivery pin updated to 110085, greeting changed to "Hello, Yuvraj".
 - Intent chips updated: replaced "Monsoon prep essentials" and "Birthday party for a 7-year-old" with "Weekly grocery essentials for a family of 4" and "Dog food and pet care supplies" to match available catalog data.
+- Added `amazon_logo.webp` favicon to the browser tab via a `<link rel="icon">` entry in the root route's `head` config.
